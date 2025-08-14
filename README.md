@@ -2,9 +2,7 @@
 
 One-tap daily water tracker with streaks, goals, reminders, and offline support.
 
-## Demo
-Live: https://YOUR_USERNAME.github.io/water-app  
-Video: add a 10–20s GIF or Loom link here.
+
 
 ## Features
 - One tap to log cups

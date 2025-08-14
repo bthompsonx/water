@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Did You Drink Water?</title>
+  <meta name="description" content="One tap a day water tracker with streaks and reminders." />
+  <style>
+    :root{
+      --bg:#0b1020; --fg:#eaf2ff; --muted:#9fb3d1; --accent:#67d4ff; --ok:#6ee7a3; --warn:#ffd166; --card:#111831;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial,sans-serif; background:linear-gradient(180deg,#0b1020,#0a0f1d 60%); color:var(--fg); display:flex; align-items:center; justify-content:center}
+    .app{width:min(720px,92vw); padding:20px}
+    .card{background:var(--card); border:1px solid #1b2341; border-radius:20px; padding:20px; box-shadow:0 10px 30px rgba(0,0,0,.35)}
+    h1{margin:0 0 6px; font-size:28px}
+    .sub{color:var(--muted); font-size:14px; margin-bottom:14px}
+    .grid{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px}
+    .stat{background:#0e1630; border:1px solid #1c2550; border-radius:16px; padding:14px}
+    .stat b{display:block; font-size:22px; margin-top:2px}
+
+    .bigbtn{width:100%; margin:18px 0; aspect-ratio:1/1; max-height:55vh; border:none; border-radius:30px; cursor:pointer; background:radial-gradient(100% 100% at 50% 0%, #9be5ff 0%, #4bb9ff 40%, #1a7bd6 100%); color:#00223e; font-size:4.5vw; min-font-size:26px; font-weight:800; letter-spacing:.5px; box-shadow:0 20px 40px rgba(27,123,214,.35), inset 0 0 0 6px rgba(255,255,255,.2); transition:transform .06s ease, filter .2s ease}
+    .bigbtn:active{transform:translateY(2px) scale(.995)}
+
+    .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+    .row input[type="number"], .row input[type="time"], .row select{background:#0f1733; border:1px solid #23305e; color:var(--fg); border-radius:12px; padding:10px 12px; font-size:14px}
+    .chip{background:#0f1733; border:1px solid #23305e; color:var(--fg); border-radius:999px; padding:8px 12px; font-size:13px}
+    .muted{color:var(--muted)}
+    .footer{margin-top:14px; display:flex; gap:12px; flex-wrap:wrap}
+    button.small{background:#122049; border:1px solid #1f2d63; color:var(--fg); padding:8px 12px; border-radius:10px; cursor:pointer}
+    button.small:hover{filter:brightness(1.15)}
+
+    .progressWrap{background:#0f1733; border:1px solid #1e2b58; border-radius:14px; overflow:hidden; height:14px}
+    .progress{height:100%; background:linear-gradient(90deg,#6ee7a3,#67d4ff); width:0%}
+
+    .toast{position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:#0f1733; border:1px solid #23305e; color:var(--fg); padding:10px 14px; border-radius:12px; opacity:0; pointer-events:none; transition:opacity .2s}
+    .toast.show{opacity:1}
+
+    @media (max-width:640px){ .bigbtn{font-size:28px}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="card">
+      <h1>Did you drink water today?</h1>
+      <div class="sub" id="dateLine"></div>
+
+      <button id="bigbtn" class="bigbtn">I DRANK WATER 💧</button>
+
+      <div class="grid">
+        <div class="stat">
+          <span class="muted">Today</span>
+          <b><span id="todayCount">0</span><span class="muted"> / </span><span id="goal">8</span></b>
+          <div class="progressWrap" aria-hidden="true"><div id="progress" class="progress"></div></div>
+          <div class="row" style="margin-top:10px">
+            <label class="muted">Goal cups:</label>
+            <input id="goalInput" type="number" min="1" max="32" step="1" style="width:90px" />
+            <button class="small" id="saveGoal">Save goal</button>
+          </div>
+        </div>
+        <div class="stat">
+          <span class="muted">Streak</span>
+          <b id="streak">0 days</b>
+          <div class="row" style="margin-top:10px">
+            <button class="small" id="shareBtn">Share streak</button>
+            <button class="small" id="historyBtn">History</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top:12px">
+        <div class="stat">
+          <span class="muted">Smart reminder</span>
+          <div class="row" style="margin-top:8px">
+            <label class="muted">Every</label>
+            <select id="reminderEvery">
+              <option value="0">Off</option>
+              <option value="60">60 min</option>
+              <option value="45">45 min</option>
+              <option value="30">30 min</option>
+              <option value="20">20 min</option>
+              <option value="15">15 min</option>
+            </select>
+            <label class="muted">between</label>
+            <input id="fromTime" type="time" value="08:00" />
+            <span class="muted">and</span>
+            <input id="toTime" type="time" value="22:00" />
+            <button class="small" id="saveReminder">Save</button>
+          </div>
+          <div class="muted" style="margin-top:6px">Works while this tab is open. Enable notifications for pop-ups.</div>
+        </div>
+        <div class="stat">
+          <span class="muted">Data</span>
+          <div class="row" style="margin-top:8px">
+            <button class="small" id="exportBtn">Export JSON</button>
+            <input id="importFile" type="file" accept="application/json" style="display:none" />
+            <button class="small" id="importBtn">Import</button>
+            <button class="small" id="resetBtn" title="Clear this day only">Clear today</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite">Saved</div>
+
+  <script>
+  ;(() => {
+    const $ = sel => document.querySelector(sel)
+    const todayKey = () => new Date().toISOString().slice(0,10)
+    const ymd = (d) => d.toISOString().slice(0,10)
+
+    const storeKey = 'water.v1'
+    const defaultState = { goal: 8, entries: {}, reminder: { every: 0, from: '08:00', to: '22:00' } }
+
+    const load = () => { try { return JSON.parse(localStorage.getItem(storeKey)) || {...defaultState} } catch { return {...defaultState} } }
+    const save = (s) => { localStorage.setItem(storeKey, JSON.stringify(s)); toast('Saved') }
+
+    let state = load()
+
+    const pad = n => String(n).padStart(2,'0')
+    const fmtDateLine = () => {
+      const d = new Date(); const wd = d.toLocaleDateString(undefined,{weekday:'long'})
+      return `${wd}, ${pad(d.getMonth()+1)}/${pad(d.getDate())}/${d.getFullYear()}`
+    }
+
+    const updateUI = () => {
+      const key = todayKey()
+      const today = state.entries[key] || 0
+      $('#dateLine').textContent = fmtDateLine()
+      $('#todayCount').textContent = today
+      $('#goal').textContent = state.goal
+      $('#goalInput').value = state.goal
+      const pct = Math.min(100, Math.round((today / state.goal) * 100))
+      $('#progress').style.width = isFinite(pct)? pct + '%' : '0%'
+      $('#streak').textContent = computeStreak() + ' days'
+    }
+
+    const computeStreak = () => {
+      let streak = 0
+      const g = Number(state.goal) || 1
+      const today = new Date()
+      for (let i=0;i<10000;i++){
+        const d = new Date(today)
+        d.setDate(today.getDate()-i)
+        const k = ymd(d)
+        const v = state.entries[k] || 0
+        if (v >= g) streak++
+        else break
+      }
+      return streak
+    }
+
+    const toast = (msg) => {
+      const t = $('#toast'); t.textContent = msg; t.classList.add('show')
+      setTimeout(()=>t.classList.remove('show'), 1200)
+    }
+
+    const inWindow = () => {
+      const now = new Date()
+      const [fh,fm] = state.reminder.from.split(':').map(Number)
+      const [th,tm] = state.reminder.to.split(':').map(Number)
+      const from = new Date(now); from.setHours(fh||0,fm||0,0,0)
+      const to = new Date(now); to.setHours(th||23,tm||59,59,999)
+      return now >= from && now <= to
+    }
+
+    let interval = null
+    const scheduleReminder = () => {
+      if (interval) clearInterval(interval)
+      const mins = Number(state.reminder.every)
+      if (!mins) return
+      interval = setInterval(async ()=>{
+        if (!inWindow()) return
+        try{
+          if (Notification && Notification.permission === 'granted'){
+            new Notification('Water check', { body: 'Take a sip and tap the button.' })
+          } else {
+            // fallback toast
+            toast('Time for water')
+          }
+        }catch{ toast('Time for water') }
+      }, mins*60*1000)
+    }
+
+    // Event wiring
+    $('#bigbtn').addEventListener('click', () => {
+      const k = todayKey()
+      state.entries[k] = (state.entries[k] || 0) + 1
+      save(state)
+      updateUI()
+      // subtle haptic if supported
+      if (navigator.vibrate) navigator.vibrate(15)
+    })
+
+    $('#saveGoal').addEventListener('click', () => {
+      const g = Math.max(1, Math.min(32, Number($('#goalInput').value||8)))
+      state.goal = g
+      save(state); updateUI()
+    })
+
+    $('#shareBtn').addEventListener('click', async () => {
+      const text = `I am on a ${computeStreak()} day water streak! 💧`
+      if (navigator.share) {
+        try{ await navigator.share({ title:'Water Streak', text }) }catch{}
+      } else {
+        navigator.clipboard.writeText(text); toast('Copied to clipboard')
+      }
+    })
+
+    $('#historyBtn').addEventListener('click', () => {
+      const days = Object.keys(state.entries).sort().map(k=>`${k}: ${state.entries[k]} cups`).join('\n') || 'No history yet.'
+      alert(days)
+    })
+
+    $('#saveReminder').addEventListener('click', async () => {
+      state.reminder.every = Number($('#reminderEvery').value)
+      state.reminder.from = $('#fromTime').value
+      state.reminder.to = $('#toTime').value
+      save(state)
+      if (state.reminder.every){
+        try{
+          if (Notification && Notification.permission !== 'granted'){
+            await Notification.requestPermission()
+          }
+        }catch{}
+      }
+      scheduleReminder()
+    })
+
+    $('#exportBtn').addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify(state,null,2)], {type:'application/json'})
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = 'water-data.json'; a.click()
+      URL.revokeObjectURL(url)
+    })
+
+    $('#importBtn').addEventListener('click', () => $('#importFile').click())
+
+    $('#importFile').addEventListener('change', async (e) => {
+      const file = e.target.files[0]; if (!file) return
+      try{
+        const text = await file.text(); const incoming = JSON.parse(text)
+        if (!incoming.entries) throw new Error('Bad file')
+        state = { ...defaultState, ...incoming, entries: incoming.entries || {} }
+        save(state); updateUI(); scheduleReminder(); toast('Imported')
+      }catch{ alert('Invalid file') }
+      e.target.value = ''
+    })
+
+    $('#resetBtn').addEventListener('click', () => {
+      if (confirm('Clear today\'s count?')){
+        const k = todayKey(); delete state.entries[k]; save(state); updateUI()
+      }
+    })
+
+    // init UI with saved reminder values
+    $('#reminderEvery').value = String(state.reminder.every || 0)
+    $('#fromTime').value = state.reminder.from || '08:00'
+    $('#toTime').value = state.reminder.to || '22:00'
+
+    updateUI(); scheduleReminder()
+  })()
+  </script>
+</body>
+</html>
